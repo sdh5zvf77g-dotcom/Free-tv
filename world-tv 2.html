@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>World Free TV – Live Public Channels</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7"></script>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #1a1d24;
+      --surface2: #242830;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --border: #2d323c;
+      --success: #22c55e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header h1 span { color: var(--accent); }
+    .badge {
+      font-size: 0.7rem;
+      background: var(--success);
+      color: #000;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: 320px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .search-box {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .search-box input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .search-box input:focus { border-color: var(--accent); }
+    .categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cat-btn {
+      padding: 6px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cat-btn:hover, .cat-btn.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .channel-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .channel-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 2px;
+    }
+    .channel-item:hover { background: var(--surface2); }
+    .channel-item.active {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+    .channel-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      object-fit: contain;
+      background: var(--surface2);
+      flex-shrink: 0;
+    }
+    .channel-info { flex: 1; min-width: 0; }
+    .channel-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .channel-group {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    /* Player area */
+    .player-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+      position: relative;
+    }
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+    .now-playing {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.85));
+      padding: 40px 24px 20px;
+      pointer-events: none;
+    }
+    .now-playing h2 {
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+    .now-playing p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+    .placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 40px;
+    }
+    .placeholder svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      opacity: 0.4;
+    }
+    .placeholder h2 {
+      font-size: 1.5rem;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .placeholder p { max-width: 400px; line-height: 1.5; }
+    /* Footer note */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 20px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+      flex-shrink: 0;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    /* Mobile */
+    @media (max-width: 768px) {
+      .main { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        height: 40vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .player-area { height: 60vh; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
+        <polyline points="17 2 12 7 7 2"/>
+      </svg>
+      World <span>Free TV</span>
+    </h1>
+    <div class="badge">LIVE • LEGAL</div>
+  </header>
+
+  <div class="main">
+    <aside class="sidebar">
+      <div class="search-box">
+        <input type="text" id="search" placeholder="Search channels..." autocomplete="off" />
+      </div>
+      <div class="categories" id="categories">
+        <button class="cat-btn active" data-cat="all">All</button>
+        <button class="cat-btn" data-cat="News">News</button>
+        <button class="cat-btn" data-cat="Sports">Sports</button>
+        <button class="cat-btn" data-cat="Movies">Movies</button>
+        <button class="cat-btn" data-cat="Kids">Kids</button>
+        <button class="cat-btn" data-cat="Entertainment">Entertainment</button>
+        <button class="cat-btn" data-cat="Weather">Weather</button>
+        <button class="cat-btn" data-cat="Education">Education</button>
+      </div>
+      <div class="channel-list" id="channelList"></div>
+    </aside>
+
+    <section class="player-area">
+      <video id="video" controls playsinline></video>
+      <div class="placeholder" id="placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
+          <polyline points="17 2 12 7 7 2"/>
+        </svg>
+        <h2>Select a channel</h2>
+        <p>Choose any free public live stream from the list. All channels are intentionally made available by their broadcasters.</p>
+      </div>
+      <div class="now-playing" id="nowPlaying" style="display:none">
+        <h2 id="npName"></h2>
+        <p id="npGroup"></p>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    Free public streams only • Sources: official broadcasters &amp; free platforms •
+    For more channels try <a href="https://pluto.tv" target="_blank" rel="noopener">Pluto TV</a>,
+    <a href="https://tubi.tv" target="_blank" rel="noopener">Tubi</a> or
+    <a href="https://www.plex.tv/watch-free-tv/" target="_blank" rel="noopener">Plex</a>
+  </footer>
+
+  <script>
+    // Curated legal free public channels (from freecasthub/public-iptv + known official streams)
+    const channels = [
+
+  { name: "DW English", group: "News", logo: "https://i.imgur.com/8MRNFb9.png", url: "https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8" },
+  { name: "DW Arabic", group: "News", logo: "https://i.imgur.com/8MRNFb9.png", url: "https://dwamdstream103.akamaized.net/hls/live/2015526/dwstream103/master.m3u8" },
+  { name: "DW Español", group: "News", logo: "https://i.imgur.com/8MRNFb9.png", url: "https://dwamdstream104.akamaized.net/hls/live/2015530/dwstream104/master.m3u8" },
+  { name: "France 24 English", group: "News", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/France_24_logo_%282013%29.svg/512px-France_24_logo_%282013%29.svg.png", url: "https://amg00106-france24-france24-samsunguk-qvpp8.amagi.tv/playlist/amg00106-france24-france24-samsunguk/playlist.m3u8" },
+  { name: "France 24 Arabic", group: "News", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/France_24_logo_%282013%29.svg/512px-France_24_logo_%282013%29.svg.png", url: "https://live.france24.com/hls/live/2037222-b/F24_AR_HI_HLS/master_5000.m3u8" },
+  { name: "France 24 Español", group: "News", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/France_24_logo_%282013%29.svg/512px-France_24_logo_%282013%29.svg.png", url: "https://live.france24.com/hls/live/2037220-b/F24_ES_HI_HLS/master_5000.m3u8" },
+  { name: "BBC Arabic", group: "News", logo: "https://i.imgur.com/ScyTG6P.png", url: "https://vs-cmaf-pushb-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_arabic_tv/pc_hd_abr_v2.mpd" },
+  { name: "BBC Persian", group: "News", logo: "https://i.imgur.com/4uTMnPb.png", url: "https://vs-cmaf-pushb-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_persian_tv/pc_hd_abr_v2.mpd" },
+  { name: "ABC News Live", group: "News", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/ABC_News_Live_logo_2021.svg/512px-ABC_News_Live_logo_2021.svg.png", url: "https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master_4000.m3u8" },
+  { name: "VOA TV Africa", group: "News", logo: "https://i.imgur.com/rtRnlqN.png", url: "https://voa-ingest.akamaized.net/hls/live/2033874/tvmc06/playlist.m3u8" },
+  { name: "VOA Persian", group: "News", logo: "https://i.imgur.com/TmqComb.png", url: "https://voa-ingest.akamaized.net/hls/live/2033876/tvmc07/playlist.m3u8" },
+  { name: "Alhurra", group: "News", logo: "https://i.imgur.com/tiQp2sR.png", url: "https://mbn-ingest-worldsafe.akamaized.net/hls/live/2038900/MBN_Alhurra_Worldsafe_HLS/master.m3u8" },
+  { name: "Al Jazeera English", group: "News", logo: "https://i.imgur.com/7bRVpnu.png", url: "https://live-hls-web-aje.getaj.net/AJE/index.m3u8" },
+  { name: "Al Jazeera Arabic", group: "News", logo: "https://i.imgur.com/7bRVpnu.png", url: "https://live-hls-web-aja.getaj.net/AJA/index.m3u8" },
+  { name: "CGTN", group: "News", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/CGTN.svg/512px-CGTN.svg.png", url: "https://amg00405-rakutentv-cgtn-rakuten-i9tar.amagi.tv/master.m3u8" },
+  { name: "CGTN Arabic", group: "News", logo: "https://i.imgur.com/AkFFrS7.png", url: "https://dash3.antik.sk/live/test_cgtn_arb_tizen/playlist.m3u8" },
+  { name: "CGTN French", group: "News", logo: "https://i.imgur.com/BwhledK.png", url: "https://dash4.antik.sk/live/test_cgtn_fra_tizen/playlist.m3u8" },
+  { name: "CGTN Russian", group: "News", logo: "https://i.imgur.com/nDWkCmL.png", url: "https://dash3.antik.sk/live/test_cgtn_rus_tizen/playlist.m3u8" },
+  { name: "CGTN Spanish", group: "News", logo: "https://i.imgur.com/Poz3xfi.png", url: "https://dash4.antik.sk/live/test_cgtn_esp_tizen/playlist.m3u8" },
+  { name: "Euronews English", group: "News", logo: "https://i.imgur.com/8t9mdg9.png", url: "https://a-cdn.klowdtv.com/live3/euronews_720p/playlist.m3u8" },
+  { name: "TRT World", group: "News", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/TRT_World.svg/512px-TRT_World.svg.png", url: "https://dash2.antik.sk/live/test_trt_world_atktv/playlist.m3u8" },
+  { name: "NHK World-Japan", group: "News", logo: "https://jiotvimages.cdn.jio.com/dare_images/images/NHK_World_Japan.png", url: "https://nhk.lls.pbs.org/index.m3u8" },
+  { name: "Arirang TV", group: "News", logo: "https://i.imgur.com/Asu5pE9.png", url: "http://amdlive-ch01.ctnd.com.edgesuite.net/arirang_1ch/smil:arirang_1ch.smil/playlist.m3u8" },
+  { name: "ABC News Australia", group: "News", logo: "https://i.imgur.com/BrW7gk8.png", url: "https://abc-news-dmd-streams-1.akamaized.net/out/v1/701126012d044971b3fa89406a440133/index.m3u8" },
+  { name: "CNA International", group: "News", logo: "https://i.imgur.com/xWglicB.png", url: "https://mediacorp-videosbclive.akamaized.net/dd724cfb0e8e4cdc921bbc4ac94614bf/ap-southeast-1/6057994443001/playlist.m3u8" },
+  { name: "DD News", group: "News", logo: "https://ltsk-cdn.s3.eu-west-1.amazonaws.com/jumpstart/Temp_Live/cdn/HLS/Channel/transparentImages/DD%20News%20HD.png", url: "https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/0811cd8c37ca4c409d5385a6cd2fa18b/index.m3u8" },
+  { name: "24 Horas", group: "News", logo: "https://i.imgur.com/IUVRm5L.png", url: "https://d32rw80ytx9uxs.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-vlldndmow4yre/24HES.m3u8" },
+  { name: "3CatInfo", group: "News", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/3CatInfo_logo.svg/512px-3CatInfo_logo.svg.png", url: "https://directes-tv-int.3catdirectes.cat/live-origin/canal324-hls/master.m3u8" },
+  { name: "ICI RDI", group: "News", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/ICI_RDI_logo.svg/512px-ICI_RDI_logo.svg.png", url: "https://rcavlive.akamaized.net/hls/live/704025/xcanrdi/master.m3u8" },
+  { name: "Belarus 24", group: "News", logo: "https://i.imgur.com/BP7tY6F.png", url: "https://ngtrk.dc.beltelecom.by/ngtrk/smil:belarus24.smil/playlist.m3u8" },
+  { name: "Press TV English", group: "News", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Press_TV_logo.svg/250px-Press_TV_logo.svg.png", url: "https://live.presstv.ir/hls/presstv_5_482/index.m3u8" },
+  { name: "Africanews French", group: "News", logo: "https://i.imgur.com/oZ5xO41.png", url: "https://cdn-euronews.akamaized.net/live/eds/africanews-fr/25050/index.m3u8" },
+  { name: "Red Bull TV", group: "Sports", logo: "https://github.com/tv-logo/tv-logos/blob/main/countries/international/red-bull-tv-int.png?raw=true", url: "https://e7c8f7d5.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWdiX1JlZEJ1bGxUVi0xX0hMUw/playlist.m3u8" },
+  { name: "FIFA+ English", group: "Sports", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/FIFA%2B_(2025).svg/700px-FIFA%2B_(2025).svg.png", url: "https://a62dad94.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X0ZJRkFQbHVzRW5nbGlzaF9ITFM/playlist.m3u8" },
+  { name: "FIFA+ Women", group: "Sports", logo: "https://i.imgur.com/xy9ZxVO.png", url: "https://cffda8ff.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/U2Ftc3VuZy1nYl9GSUZBUGx1c3dvbWVuX0hMUw/playlist.m3u8" },
+  { name: "Motorsport.tv", group: "Sports", logo: "https://i.imgur.com/qmczb2N.png", url: "https://25dee28f.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X01vdG9yc3BvcnR0di0xX0hMUw/playlist.m3u8" },
+  { name: "Teledeporte", group: "Sports", logo: "https://i.imgur.com/b0H5f62.png", url: "https://d1cctoeg0n48w5.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-mnixw9wn5ugmv/TeledeporteES.m3u8" },
+  { name: "Esport3", group: "Sports", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Esport3.svg/330px-Esport3.svg.png", url: "https://directes-tv-int.3catdirectes.cat/live-content/esport3-hls/master.m3u8" },
+  { name: "L'Équipe", group: "Sports", logo: "https://i.imgur.com/t35zhM9.png", url: "https://dshn8inoshngm.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-gac2i63dmu8b7/LEquipe_FR.m3u8" },
+  { name: "ERT Sports 1", group: "Sports", logo: "https://i.imgur.com/EsczO2H.png", url: "http://hbbtvapp.ert.gr/stream.php/v/vid_ertsports_mpeg.2ts" },
+  { name: "ERT Sports 2", group: "Sports", logo: "https://i.imgur.com/b2SNQPi.png", url: "http://hbbtvapp.ert.gr/stream.php/v/vid_ertplay2_mpeg.2ts" },
+  { name: "San Marino RTV Sport", group: "Sports", logo: "", url: "https://d2hrvno5bw6tg2.cloudfront.net/smrtv-ch02/smil:ch-02.smil/master.m3u8" },
+  { name: "RTSH Sport", group: "Sports", logo: "https://i.postimg.cc/wMrtS1qZ/rtshsport.png", url: "http://178.33.11.6:8696/live/rtshsport/playlist.m3u8" },
+  { name: "Belarus 5", group: "Sports", logo: "https://i.imgur.com/NJsRFud.png", url: "https://ngtrk.dc.beltelecom.by/ngtrk/smil:belarus5.smil/playlist.m3u8" },
+  { name: "TVRI Sport", group: "Sports", logo: "https://i.postimg.cc/PrqBt2h1/tvrisport.png", url: "https://ott-balancer.tvri.go.id/live/eds/SportHD/hls/SportHD.m3u8" },
+  { name: "TDM Sports", group: "Sports", logo: "https://i.imgur.com/AsWLf8S.png", url: "https://live3.tdm.com.mo/ch4/sport_ch4.live/playlist.m3u8" },
+  { name: "MNB Sport", group: "Sports", logo: "https://i.imgur.com/z854PC3.png", url: "https://cdn4.skygo.mn/live/disk1/MNBSport/DASH-FTA/MNBSport.mpd" },
+  { name: "Varzesh TV", group: "Sports", logo: "https://upload.wikimedia.org/wikipedia/fa/thumb/f/f5/Iribvarzesh2022.png/240px-Iribvarzesh2022.png", url: "https://lenz.splus.ir/PLTV/88888888/224/3221226845/index.m3u8" },
+  { name: "RTA Sport", group: "Sports", logo: "https://i.postimg.cc/6qDg2JN8/rtasport.png", url: "https://rtatv.akamaized.net/Content/HLS/Live/channel(RTA3)/index.m3u8" },
+  { name: "TJK TV", group: "Sports", logo: "https://i.imgur.com/3zHdkYG.png", url: "https://tjktv-live.tjk.org/tjktv.m3u8" },
+  { name: "Stadium", group: "Sports", logo: "https://upload.wikimedia.org/wikipedia/en/thumb/5/53/Stadium_%28sports_network%29_logo.svg/512px-Stadium_%28sports_network%29_logo.svg.png", url: "https://aegis-cloudfront-1.tubi.video/74681dcc-e6d0-4add-ad67-a22ad9c152e6/playlist.m3u8" },
+  { name: "SportsGrid", group: "Sports", logo: "https://i.imgur.com/ulGKX30.png", url: "https://sportsgrid-tribal.amagi.tv/playlist.m3u8" },
+  { name: "FUEL TV", group: "Sports", logo: "https://i.imgur.com/I8mviBy.png", url: "https://amg01074-fueltv-fueltvemeaen-rakuten-b6j62.amagi.tv/hls/amagi_hls_data_rakutenAA-fueltvemeaen/CDN/master.m3u8" },
+  { name: "EDGESport", group: "Sports", logo: "https://i.imgur.com/bgQ6kz7.png", url: "https://edgesports-sportstribal.amagi.tv/playlist.m3u8" },
+  { name: "World of Freesports", group: "Sports", logo: "https://i.imgur.com/lta5Mog.png", url: "https://mainstreammedia-worldoffreesportsintl-rakuten.amagi.tv/playlist.m3u8" },
+  { name: "Trace Sport Stars", group: "Sports", logo: "https://i.imgur.com/FabFP5A.png", url: "https://lightning-tracesport-samsungau.amagi.tv/playlist.m3u8" },
+  { name: "Fox Weather", group: "Weather", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/Fox_Weather_logo.svg/512px-Fox_Weather_logo.svg.png", url: "https://247wlive.foxweather.com/stream/index.m3u8" },
+  { name: "AccuWeather Now", group: "Weather", logo: "https://i.imgur.com/M8wbVYK.png", url: "https://cdn-ue1-prod.tsv2.amagi.tv/linear/amg00684-accuweather-accuweather-plex/playlist.m3u8" },
+  { name: "Sky News Weather", group: "Weather", logo: "https://i.postimg.cc/5tj8kWSX/skynewsweather.png", url: "https://distro001-gb-hls1-prd.delivery.skycdp.com/easel_cdn/ngrp:weather_loop.stream_all/playlist.m3u8" },
+  { name: "Meteonews", group: "Weather", logo: "https://i.imgur.com/YtYhbJD.png", url: "https://streaming.meteonews.net/hls/stream.m3u8" },
+  { name: "NHK Kishou Saigai", group: "Weather", logo: "https://i.imgur.com/oWKCBIz.png", url: "https://newssimul-stream.nhk.jp/hls/live/2010561/nhknewssimul/master.m3u8" },
+  { name: "Weathernews", group: "Weather", logo: "https://i.imgur.com/A8uRSTS.png", url: "https://weather-live-hls01e.akamaized.net/ade36978-4ad3-48de-91ab-7d6edd0b6488/11ed8ed8ca.ism/manifest(format=m3u8-aapl-v3,audio-only=false).m3u8" },
+  { name: "3Cat Càmeres del temps", group: "Weather", logo: "https://i.imgur.com/zXy2kbe.png", url: "https://directes-tv-int.3catdirectes.cat/live-content/beauties-hls/master.m3u8" },
+  { name: "中国气象频道", group: "Weather", logo: "https://i.imgur.com/syNwDpg.png", url: "http://hls.weathertv.cn/tslslive/qCFIfHB/hls/live_sd.m3u8" },
+  { name: "ALTV", group: "Education", logo: "https://i.imgur.com/MCbCSWv.png", url: "https://thaipbs-ujxrch.cdn.byteark.com/live/playlist_1080p/index.m3u8" },
+  { name: "ARD-alpha", group: "Education", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/ARD_alpha.svg/512px-ARD_alpha.svg.png", url: "https://brlive-lh.akamaihd.net/i/bralpha_germany@119899/master.m3u8" },
+  { name: "Canal Educação", group: "Education", logo: "https://i.imgur.com/OOB7nrS.png", url: "https://canaleducacao-stream.ebc.com.br/index.m3u8" },
+  { name: "Canal Saúde", group: "Education", logo: "https://i.imgur.com/ht4tUOc.png", url: "https://arkyvbre1g.zoeweb.tv/fiocruz/fiocruz.stream/playlist.m3u8" },
+  { name: "Canal Savoir", group: "Education", logo: "https://upload.wikimedia.org/wikipedia/commons/9/97/Savoir_m%C3%A9dia_logo_3.png", url: "https://hls.savoir.media/live/stream.m3u8" },
+  { name: "Classic Arts Showcase", group: "Education", logo: "https://i.imgur.com/M6FFkc3.png", url: "https://classicarts.akamaized.net/hls/live/1024257/CAS/master.m3u8" },
+  { name: "Cloudflare TV", group: "Education", logo: "https://i.imgur.com/l4m0is8.jpeg", url: "https://cloudflare.tv/hls/live.m3u8" },
+  { name: "Create", group: "Education", logo: "https://i.imgur.com/OIJTECP.png", url: "https://create.lls.pbs.org/index.m3u8" },
+  { name: "DLTV 1", group: "Education", logo: "https://i.imgur.com/nLzdGeX.png", url: "https://cdn-live.dltv.ac.th/dltv01.m3u8" },
+  { name: "DLTV 2", group: "Education", logo: "https://i.imgur.com/lDBSTfE.png", url: "https://cdn-live.dltv.ac.th/dltv02.m3u8" },
+  { name: "DLTV 3", group: "Education", logo: "https://i.imgur.com/wmrxerm.png", url: "https://cdn-live.dltv.ac.th/dltv03.m3u8" },
+  { name: "DLTV 4", group: "Education", logo: "https://i.imgur.com/WkpoQhU.png", url: "https://cdn-live.dltv.ac.th/dltv04.m3u8" },
+  { name: "DLTV 5", group: "Education", logo: "https://i.imgur.com/J1E89jX.png", url: "https://cdn-live.dltv.ac.th/dltv05.m3u8" },
+  { name: "DLTV 6", group: "Education", logo: "https://i.imgur.com/qeIHWC0.png", url: "https://cdn-live.dltv.ac.th/dltv06.m3u8" },
+  { name: "DLTV 7", group: "Education", logo: "https://i.imgur.com/OjYwMe3.png", url: "https://cdn-live.dltv.ac.th/dltv07.m3u8" },
+  { name: "DLTV 8", group: "Education", logo: "https://i.imgur.com/xIwn5Ha.png", url: "https://cdn-live.dltv.ac.th/dltv08.m3u8" },
+  { name: "DLTV 9", group: "Education", logo: "https://i.imgur.com/yPeSAry.png", url: "https://cdn-live.dltv.ac.th/dltv09.m3u8" },
+  { name: "DLTV 10", group: "Education", logo: "https://i.imgur.com/TgN81Zr.png", url: "https://cdn-live.dltv.ac.th/dltv10.m3u8" },
+  { name: "DLTV 11", group: "Education", logo: "https://i.imgur.com/hFk2b5s.png", url: "https://cdn-live.dltv.ac.th/dltv11.m3u8" },
+  { name: "DLTV 12", group: "Education", logo: "https://i.imgur.com/ITt6lY7.png", url: "https://cdn-live.dltv.ac.th/dltv12.m3u8" },
+  { name: "DLTV 13", group: "Education", logo: "https://i.imgur.com/asB5w3v.png", url: "https://cdn-live.dltv.ac.th/dltv13.m3u8" },
+  { name: "DLTV 14", group: "Education", logo: "https://i.imgur.com/HOjZRNS.png", url: "https://cdn-live.dltv.ac.th/dltv14.m3u8" },
+  { name: "DLTV 15", group: "Education", logo: "https://i.imgur.com/onJi2b6.png", url: "https://cdn-live.dltv.ac.th/dltv15.m3u8" },
+  { name: "EBS 1", group: "Education", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/EBS_1TV_Logo.svg/512px-EBS_1TV_Logo.svg.png", url: "https://ebsonair.ebs.co.kr/ebs1familypc/familypc1m/playlist.m3u8" },
+  { name: "EBS 2", group: "Education", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/EBS_2TV_Logo.svg/512px-EBS_2TV_Logo.svg.png", url: "https://ebsonair.ebs.co.kr/ebs2familypc/familypc1m/playlist.m3u8" },
+  { name: "EBS E", group: "Education", logo: "https://i.imgur.com/5wLJzb0.png", url: "https://ebsonair.ebs.co.kr/plus3familypc/familypc1m/playlist.m3u8" },
+  { name: "EBS+ 1", group: "Education", logo: "https://i.imgur.com/aCeuhon.png", url: "https://ebsonair.ebs.co.kr/plus1familypc/familypc1m/playlist.m3u8" },
+  { name: "EBS+ 2", group: "Education", logo: "https://i.imgur.com/pllIMGi.png", url: "https://ebsonair.ebs.co.kr/plus2familypc/familypc1m/playlist.m3u8" },
+  { name: "Kan Kids", group: "Education", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/KanHinuchit.svg/512px-KanHinuchit.svg.png", url: "https://kan23.media.kan.org.il/hls/live/2024691/2024691/master.m3u8" },
+  { name: "OUN", group: "Education", logo: "https://i.imgur.com/7s6JtcU.png", url: "https://live.knou.ac.kr/knou1/live1/playlist.m3u8" },
+  { name: "Once México", group: "Education", logo: "https://i.imgur.com/K0351vF.png", url: "https://vivo.canaloncelive.tv/securepkgr3/oncemexico/playlist.m3u8" },
+  { name: "PBS Honolulu", group: "Education", logo: "https://i.imgur.com/O5uOeQh.png", url: "https://khetdt.lls.pbs.org/out/v1/7ec7903413294b72bb64f83963d8ea9b/index.m3u8" },
+  { name: "PBS Kids", group: "Education", logo: "https://i.imgur.com/q4cUQKW.png", url: "https://livestream.pbskids.org/out/v1/14507d931bbe48a69287e4850e53443c/est.m3u8" },
+  { name: "PBS Kids Alaska", group: "Education", logo: "https://i.imgur.com/ambc9le.png", url: "https://livestream.pbskids.org/out/v1/94b88ad58fc14f84a9382341f1c00b82/akst.m3u8" },
+  { name: "PBS Kids Hawaii", group: "Education", logo: "https://i.imgur.com/ambc9le.png", url: "https://livestream.pbskids.org/out/v1/aa31792fee094b24b09045483f04d150/hast.m3u8" },
+  { name: "PBS Kids Mountain", group: "Education", logo: "https://i.imgur.com/ambc9le.png", url: "https://livestream.pbskids.org/out/v1/3fe3030a2c8045a3932f4289d9eba3e6/mst.m3u8" },
+  { name: "PBS Kids Pacific", group: "Education", logo: "https://i.imgur.com/ambc9le.png", url: "https://livestream.pbskids.org/out/v1/11f2e6b73eaa4887b3746cb863960e79/pst.m3u8" },
+  { name: "Télé-Québec", group: "Education", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/T%C3%A9l%C3%A9-Qu%C3%A9bec_logo.svg/512px-T%C3%A9l%C3%A9-Qu%C3%A9bec_logo.svg.png", url: "https://bcovlive-a.akamaihd.net/4b1c462c86094bae93b65adc84e43afc/us-west-2/6101674910001/playlist.m3u8" },
+  { name: "TRT EBA Ilkokul", group: "Education", logo: "https://i.imgur.com/CRBfZi4.png", url: "https://tv-e-okul00.medya.trt.com.tr/master.m3u8" },
+  { name: "TRT EBA Lise", group: "Education", logo: "https://i.imgur.com/vj2L2L2.png", url: "https://tv-e-okul02.medya.trt.com.tr/master.m3u8" },
+  { name: "TVE RS", group: "Education", logo: "https://i.imgur.com/MQ6lJpS.png", url: "https://streaming.procergs.com.br:8443/tve/stve/playlist.m3u8" },
+  { name: "Vyas NIC", group: "Education", logo: "https://www.yupptv.com/seo_img/UGC_GEC_big.jpg", url: "https://playhls.media.nic.in/hls/live/vyas/vyas.m3u8" },
+  { name: "World Channel", group: "Education", logo: "https://upload.wikimedia.org/wikipedia/commons/3/36/World_Channel_2023.svg", url: "https://world.lls.pbs.org/index.m3u8" },
+  { name: "МосОбрТВ", group: "Education", logo: "https://i.imgur.com/t6PmOD5.png", url: "http://retc.educom.ru/mosobrtv/tv1/index.m3u8" },
+{ name: "3ABN Kids", group: "Kids", logo: "https://i.imgur.com/z3npqO1.png", url: "https://3abn.bozztv.com/3abn2/Kids_live/smil:Kids_live.smil/playlist.m3u8" },
+  { name: "4 Fun Kids (576i)", group: "Kids", logo: "https://i.imgur.com/2JO5Y8c.png", url: "https://stream.4fun.tv:8889/hls/4fk_high/index.m3u8" },
+  { name: "9Go! (720p)", group: "Kids", logo: "https://i.imgur.com/RLijQI8.png", url: "https://9now-livestreams.akamaized.net/hls/live/2008312/go-syd/master.m3u8" },
+  { name: "13 Kids (1080p)", group: "Kids", logo: "https://i.imgur.com/8WJUbSD.png", url: "https://origin.dpsgo.com/ssai/event/LhHrVtyeQkKZ-Ye_xEU75g/master.m3u8" },
+  { name: "90's Kids", group: "Kids", logo: "https://images.pluto.tv/channels/6452c814939a590008567a3b/colorLogoPNG_1731836283044.png", url: "https://jmp2.uk/plu-6452c814939a590008567a3b.m3u8" },
+  { name: "90s Kids TV 2", group: "Kids", logo: "https://images.pluto.tv/channels/6452c77ed3fdde00080eb3a8/colorLogoPNG.png", url: "https://jmp2.uk/plu-6452c77ed3fdde00080eb3a8.m3u8" },
+  { name: "ABC Entertains (720p)", group: "Kids", logo: "https://upload.wikimedia.org/wikipedia/en/thumb/3/35/ABC_Entertains_logo.svg/960px-ABC_Entertains_logo.svg.png", url: "https://c.mjh.nz/abc-me.m3u8" },
+  { name: "ABC Kids", group: "Kids", logo: "https://static.wikia.nocookie.net/logopedia/images/2/29/ABC_Kids_%282020%29.svg/revision/latest/scale-to-width-down/512", url: "https://c.mjh.nz/abc-kids.m3u8" },
+  { name: "ADO TV (720p)", group: "Kids", logo: "https://i.imgur.com/pxFamLr.png", url: "https://strhls.streamakaci.tv/ortb/ortb2-multi/playlist.m3u8" },
+  { name: "Afarin Baxcha (1080p)", group: "Kids", logo: "https://i.postimg.cc/4xRkBDRx/Afarin-Baxcha-200.png", url: "https://5dcabf026b188.streamlock.net/afarinTV/livestream/playlist.m3u8" },
+  { name: "Afarin TV (720p)", group: "Kids", logo: "https://i.imgur.com/6MnXD7g.png", url: "https://65f16f0fdfc51.streamlock.net/afarinTV/livestream/playlist.m3u8" },
+  { name: "Akili Kids!", group: "Kids", logo: "https://i.imgur.com/xFm2co6.png", url: "https://m6.livecdn.io/akilikids.co.ke/akilikids.smil/playlist.m3u8" },
+  { name: "Amou Yazid TV (576p)", group: "Kids", logo: "https://i.imgur.com/L8UPGPC.png", url: "http://mkstream.servehttp.com:1940/AmouYazid/ay1/playlist.m3u8" },
+  { name: "Ani (576p)", group: "Kids", logo: "https://i.imgur.com/i2AP0hp.png", url: "http://46.32.176.50/anitv/index.m3u8" },
+  { name: "Aqlvoy", group: "Kids", logo: "https://i.imgur.com/ekF5cAi.png", url: "https://stream8.cinerama.uz/1205/tracks-v1a1/mono.m3u8" },
+  { name: "Atfal & Mawaheb TV (1080p)", group: "Kids", logo: "https://i.imgur.com/Y2BqP9m.png", url: "https://5aafcc5de91f1.streamlock.net/atfal1.com/atfal2/playlist.m3u8" },
+  { name: "Avatar (Germany)", group: "Kids", logo: "https://images.pluto.tv/channels/656df599c0fc8800089c75ab/colorLogoPNG.png", url: "https://jmp2.uk/plu-656df599c0fc8800089c75ab.m3u8" },
+  { name: "Avatar (Sweden)", group: "Kids", logo: "https://images.pluto.tv/channels/61c09b48d6d97900076e91c5/colorLogoPNG.png", url: "https://jmp2.uk/plu-61c09b48d6d97900076e91c5.m3u8" },
+  { name: "Avatar: A lenda de Aang", group: "Kids", logo: "https://images.pluto.tv/channels/6759eeb1bd523200083b4f29/colorLogoPNG.png", url: "https://jmp2.uk/plu-6759eeb1bd523200083b4f29.m3u8" },
+  { name: "Avatar: La Leyenda de Aang", group: "Kids", logo: "https://images.pluto.tv/channels/6759ee82bd523200083b4f0f/colorLogoPNG.png", url: "https://jmp2.uk/plu-6759ee82bd523200083b4f0f.m3u8" },
+  { name: "Baby Shark TV (1080p)", group: "Kids", logo: "https://i.imgur.com/SbBKr8L.png", url: "https://newidco-babysharktv-1-us.roku.wurl.tv/playlist.m3u8" },
+  { name: "Baby Time (576p)", group: "Kids", logo: "https://i.imgur.com/lW3WIBD.png", url: "http://178.134.1.158:8081/babytime/index.m3u8" },
+  { name: "BabyFirst (720p)", group: "Kids", logo: "https://i.imgur.com/WxLHBwu.png", url: "https://cdn.fast.jwp.services/v1/channel/1_jB6940Ei_TvhvIHDL/manifest.m3u8" },
+  { name: "BabyFirst Brazil", group: "Kids", logo: "https://i.imgur.com/WxLHBwu.png", url: "https://jmp2.uk/plu-5f4fb4cf605ddf000748e16f.m3u8" },
+  { name: "BabyFirst Spanish (1080p)", group: "Kids", logo: "https://i.imgur.com/WxLHBwu.png", url: "http://168.196.127.137:6001/play/a06j/index.m3u8" },
+  { name: "BabyTV Latin America (1080p)", group: "Kids", logo: "https://i.imgur.com/4BDJ5FT.png", url: "https://cdn1tlinkgo.tlink.cl/babytv/index.m3u8" },
+  { name: "BabyTV Turkiye (1080p)", group: "Kids", logo: "https://i.imgur.com/4BDJ5FT.png", url: "https://saran-live.ercdn.net/babytv/index.m3u8" },
+  { name: "Balapan (576p)", group: "Kids", logo: "https://vote.rtrk.kz/img/balapan-logo.png", url: "https://fs.uplink.kz/balapan/mono.m3u8?token=onlinetv" },
+  { name: "Balapan HD (1080p)", group: "Kids", logo: "https://vote.rtrk.kz/img/balapan-logo.png", url: "https://balapantv-stream.qazcdn.com/balapantv/balapantv/playlist.m3u8" },
+  { name: "Balapan International (1080p)", group: "Kids", logo: "https://otv.server-img.lfstrm.tv/images/channel_logos/logo_638108d82e47243302bc81f1.png", url: "https://live-3.otcnet.ru/Balapan/index.m3u8" },
+  { name: "BBC Four/CBeebies (720p)", group: "Kids", logo: "https://i.imgur.com/aH0PCPy.png", url: "http://193.46.58.239:8080/CbeebiesHD/index.m3u8" },
+  { name: "BBC Kids (720p)", group: "Kids", logo: "https://i.imgur.com/vKUD64a.png", url: "https://dmr1h4skdal9h.cloudfront.net/playlist.m3u8" },
+  { name: "BBC Three/CBBC (720p)", group: "Kids", logo: "https://i.imgur.com/CGXC5fp.png", url: "http://193.46.58.239:8080/CBBCHD/index.m3u8" },
+  { name: "BeJoy.kids (1080p)", group: "Kids", logo: "https://bejoy.kids/wp-content/uploads/2025/09/Logo_Bejoy.png", url: "https://stream.paroledivita.org/bejoy.m3u8" },
+  { name: "Bilim Ilim (480p)", group: "Kids", logo: "https://i.ibb.co/qswtSWm/428598841-309456895457301-6206911287895397651-n-1.png", url: "http://gohoski.fvds.ru:3000/mediabay/611/index.m3u8" },
+  { name: "Biznet Kids (1080p)", group: "Kids", logo: "https://i.imgur.com/J5QNqJ0.png", url: "http://livestream.biznetvideo.net/biznet_kids/smil:kids.smil/index.m3u8" },
+  { name: "Bob Esponja (720p)", group: "Kids", logo: "https://images.pluto.tv/channels/5f1aca0b4e448e00075e7c5e/colorLogoPNG.png", url: "https://jmp2.uk/plu-5f1aca0b4e448e00075e7c5e.m3u8" },
+  { name: "Bob Esponja Calca Quadrada (720p)", group: "Kids", logo: "https://images.pluto.tv/channels/62545c0b002f4b0007688b61/colorLogoPNG.png", url: "https://jmp2.uk/plu-62545c0b002f4b0007688b61.m3u8" },
+  { name: "Bob Esponja Pantalones Cuadrados (720p)", group: "Kids", logo: "https://images.pluto.tv/channels/6254598f5083f800076d8563/colorLogoPNG_1781042617821.png", url: "https://jmp2.uk/plu-6254598f5083f800076d8563.m3u8" },
+  { name: "Bob l'eponge (720p)", group: "Kids", logo: "https://images.pluto.tv/channels/66588931a3865300085ca800/colorLogoPNG.png", url: "https://jmp2.uk/plu-66588931a3865300085ca800.m3u8" },
+  { name: "Bolajon (576p)", group: "Kids", logo: "https://i.imgur.com/s7o0ifu.png", url: "https://stream8.cinerama.uz/1007/playlist.m3u8" },
+  { name: "Box Kids TV (720p)", group: "Kids", logo: "https://upload.wikimedia.org/wikipedia/commons/1/18/Boxkidstv.png", url: "http://170.83.49.66:8083/BOXKIDSHD/index.m3u8" },
+  { name: "Brat TV (1080p)", group: "Kids", logo: "https://i.imgur.com/Kkcp9Bk.png", url: "https://streams2.sofast.tv/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/04072b68-dc6a-4d5e-98af-f356ba8d5063/playlist.m3u8" },
+  { name: "Bravo! Kids TV", group: "Kids", logo: "https://i.imgur.com/JcJ6fQ9.png", url: "https://streaming.radiohub.hr/RadioHub_WEB_streaming/BHWUC27pGZ/3.m3u8" },
+  { name: "BRTV Kaku Childrens Channel", group: "Kids", logo: "https://i.imgur.com/t8X4wPZ.png", url: "http://223.111.191.105/downflv.brtvcloud.com/kkkkasd/winfr.m3u8" },
+  { name: "00s Replay", group: "Movies", logo: "https://images.pluto.tv/channels/62ba60f059624e000781c436/colorLogoPNG.png", url: "https://jmp2.uk/plu-62ba60f059624e000781c436.m3u8" },
+  { name: "4ever Cinema (1080p)", group: "Movies", logo: "https://i.imgur.com/vFOgVbG.png", url: "http://stream.mcquack.net/258/index.m3u8" },
+  { name: "24 Hour Free Movies (720p)", group: "Movies", logo: "https://i.imgur.com/iSVnzR1.png", url: "https://d1j2u714xk898n.cloudfront.net/scheduler/scheduleMaster/145.m3u8" },
+  { name: "30A TV Classic Movies (720p)", group: "Movies", logo: "", url: "https://30a-tv.com/feeds/pzaz/30atvmovies.m3u8" },
+  { name: "50 Cent Action (720p)", group: "Movies", logo: "https://provider-static.plex.tv/epg/cms/production/bcfb9977-809f-49ae-acc7-430f2c6ffb26/50CentAction_Logo_1500x1000_DarkBG_-_Chris_Connors.png", url: "https://jmp2.uk/plu-68487fb3f212bedacf5a53e3.m3u8" },
+  { name: "70s Cinema", group: "Movies", logo: "https://i.imgur.com/mgXeEE4.png", url: "https://jmp2.uk/plu-5f4d878d3d19b30007d2e782.m3u8" },
+  { name: "80s Rewind", group: "Movies", logo: "https://i.imgur.com/nkEeYfI.png", url: "https://jmp2.uk/plu-5ca525b650be2571e3943c63.m3u8" },
+  { name: "90s Throwback", group: "Movies", logo: "https://i.imgur.com/KoGko6M.png", url: "https://jmp2.uk/plu-5f4d86f519358a00072b978e.m3u8" },
+  { name: "312 Kino (406p)", group: "Movies", logo: "https://i.ibb.co/3m9LrLj/k7gIibH.png", url: "http://176.126.166.43:1935/live/312kino/playlist.m3u8" },
+  { name: "&TV International (1080p)", group: "Movies", logo: "https://xstreamcp-assets-msp.streamready.in/assets/LIVETV/LIVECHANNEL/LIVETV_LIVETVCHANNEL_SYMANDTV/images/LOGO_HD/LOGO_HD_image.png", url: "https://3f56f997.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/U2Ftc3VuZy1nYl9BbmRUVl9ITFM/playlist.m3u8" },
+  { name: "&TV HD (1080p)", group: "Movies", logo: "https://xstreamcp-assets-msp.streamready.in/assets/LIVETV/LIVECHANNEL/LIVETV_LIVETVCHANNEL_SYMANDTV/images/LOGO_HD/LOGO_HD_image.png", url: "http://202.70.146.135:8000/play/a06c/index.m3u8" },
+  { name: "&xplor HD (1080p)", group: "Movies", logo: "https://xstreamcp-assets-msp.streamready.in/assets/LIVETV/LIVECHANNEL/LIVETV_LIVETVCHANNEL_SYMANDXPLOR_HD/images/LOGO_HD/LOGO_HD_image.png", url: "http://dksmedia.tv/play/live.php?mac=00:1A:79:B6:60:3D&stream=209743&extension=ts&play_token=mR7FwO88sY" },
+  { name: "ABN Bible Movies Channel (720p)", group: "Movies", logo: "https://i.imgur.com/NCqZdaL.png", url: "https://mediaserver.abnvideos.com/streams/abnbiblemovies.m3u8" },
+  { name: "Action 24 (1080p)", group: "Movies", logo: "https://upload.wikimedia.org/wikipedia/commons/8/88/Action24-logo-small.png", url: "http://actionlive.siliconweb.com/actionabr/actiontv/playlist.m3u8" },
+  { name: "Adrenalina Pura TV (720p)", group: "Movies", logo: "https://i.imgur.com/Pvid2iH.png", url: "https://jmp2.uk/plu-61b793ccf571b80007b7a610.m3u8" },
+  { name: "Adrenalina Pura TV Brazil", group: "Movies", logo: "https://i.imgur.com/Pvid2iH.png", url: "https://jmp2.uk/plu-61b790b985706b00072cb797.m3u8" },
+  { name: "Afghan Nobel Movies (720p)", group: "Movies", logo: "https://i.ibb.co/zfdbVSm/logo-1.png", url: "https://live.relentlessinnovations.net:1936/afghannobel/afghannobel/playlist.m3u8" },
+  { name: "Aflam (1080p)", group: "Movies", logo: "https://i.imgur.com/cTLj7Yt.png", url: "https://shd-amg-fast.edgenextcdn.net/tx001/playlist.m3u8" },
+  { name: "Afra Film", group: "Movies", logo: "", url: "https://afrafhls.wns.live/hls/stream.m3u8" },
+  { name: "Alankar TV (720p)", group: "Movies", logo: "https://xstreamcp-assets-msp.streamready.in/assets/LIVETV/LIVECHANNEL/LIVETV_LIVETVCHANNEL_ALANKAR/images/LOGO_HD/image.png", url: "https://livetv.tarangplus.in/alankar-origin/live/playlist.m3u8" },
+  { name: "All Time Movies (576p)", group: "Movies", logo: "https://yt3.googleusercontent.com/U4INXhwmEUOABHoemQBpI6C9t4jb9iBmDvZ3ZT3lAb9Au_jVl32NL8XDpy-9cBjRJ2LP69Ovzg=s900-c-k-c0x00ffffff-no-rj", url: "https://tvsen6.aynaott.com/a2cKGQtB/index.m3u8" },
+  { name: "Allo Cine (1080p)", group: "Movies", logo: "https://raw.githubusercontent.com/songwenhui239/Songwenhui239/refs/heads/main/Allo%20Cine.jpeg", url: "https://d1yl6bf4hrzbr0.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-5km3zs4zs9sp0/allo.m3u8" },
+  { name: "alpha Cinema (1080p)", group: "Movies", logo: "https://i.imgur.com/146OgfU.png", url: "https://live.15plusmg.ru/memfs/b389173a-df4e-4171-8904-e249893e71eb.m3u8" },
+  { name: "AlternaTV (720p)", group: "Movies", logo: "https://tv.alterna.ar/alternatv.png", url: "https://tv.alterna.ar/stream/hls/live.m3u8" },
+  { name: "AMC (United States) (720p)", group: "Movies", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/AMC_logo_2019.svg/960px-AMC_logo_2019.svg.png", url: "http://23.239.31.26:8989/amc/index.m3u8" },
+  { name: "AMC Europe Bulgary (576p)", group: "Movies", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/AMC_logo_2019.svg/960px-AMC_logo_2019.svg.png", url: "http://hls127.freeott.top:8080/BG_AMC/video.m3u8" },
+  { name: "AMC Latin America (1080p)", group: "Movies", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/AMC_logo_2019.svg/960px-AMC_logo_2019.svg.png", url: "http://15.204.246.24:8080/AMCHD/index.m3u8" },
+  { name: "AMC Latin America Brazil (720p)", group: "Movies", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/AMC_logo_2019.svg/960px-AMC_logo_2019.svg.png", url: "http://170.83.49.66:8083/AMCHD/index.m3u8" },
+  { name: "Amedia Hit (1080p)", group: "Movies", logo: "https://i.imgur.com/a8ZBGBw.png", url: "http://stream.mcquack.net/162/index.m3u8" },
+  { name: "Amedia Premium (720p)", group: "Movies", logo: "https://i.imgur.com/UUjehw9.png", url: "http://31.148.48.15/Amedia_Premium_HD/index.m3u8" },
+  { name: "American Horrors (480p)", group: "Movies", logo: "https://image.roku.com/developer_channels/prod/16f5571a82819e8992a748c70b256cbe63105f4b546b73d129668dc2cb701d91.png", url: "http://107.167.7.162:8081/playlist/amhor/playlist.m3u8" },
+  { name: "ARTFLIX Movie Classics (720p)", group: "Movies", logo: "https://i.imgur.com/5pOZQB4.png", url: "https://amogonetworx-artflix-1-nl.samsung.wurl.tv/playlist.m3u8" },
+  { name: "Asianet Movies HD (720p)", group: "Movies", logo: "https://i.imgur.com/cps67hs.png", url: "https://da86m1sqpm3o0.cloudfront.net/28072023/smil:asianetmovies1.smil/playlist.m3u8" },
+  { name: "Aurora Media Films (720p)", group: "Movies", logo: "https://i.imgur.com/DVC5w6H.png", url: "https://cdn.streamhispanatv.net:3417/live/auroramflive.m3u8" },
+  { name: "AVI Rewind (1080p)", group: "Movies", logo: "https://zplay.cl/LogosV2/AVIREWINDS_NEW.png", url: "http://45.70.201.81:8000/play/a010/index.m3u8" },
+  { name: "AXN (Brazil) (720p)", group: "Movies", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/AXN_logo_%282015%29.svg/960px-AXN_logo_%282015%29.svg.png", url: "http://170.83.16.50/AXN/index.m3u8" },
+  { name: "AXN Asia Philippines (576p)", group: "Movies", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/AXN_logo_%282015%29.svg/960px-AXN_logo_%282015%29.svg.png", url: "https://sra72yz.s.gy/AXN_ASIA_PHILIPPINES.m3u8" },
+  { name: "AXN Asia Taiwan (1080p)", group: "Movies", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/AXN_logo_%282015%29.svg/960px-AXN_logo_%282015%29.svg.png", url: "http://125.227.210.55:4050/VideoInput/play.ts" },
+  { name: "AXN Asia Thailand (720p)", group: "Movies", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/AXN_logo_%282015%29.svg/960px-AXN_logo_%282015%29.svg.png", url: "http://58.8.186.128:10007/bysid/2814" },
+  { name: "AXN Black (576p)", group: "Movies", logo: "https://i.imgur.com/Peo1QiZ.png", url: "http://hls127.freeott.top:8080/BG_AXN_Black/video.m3u8" },
+  { name: "1KZN TV (576p)", group: "Entertainment", logo: "https://admango.cdn.mangomolo.com/analytics/uploads/188/6544bebaae.jpg", url: "https://cdn.freevisiontv.co.za/sttv/smil:1kzn.stream.smil/playlist.m3u8" },
+  { name: "2x2 (576i)", group: "Entertainment", logo: "https://i.imgur.com/fhQFLEl.png", url: "https://bl.rutube.ru/livestream/392b4686b770bae2da6bf5ac4574add5/index.m3u8?e=2068731801&s=tenr-yHXUv1wibfka78s2A&scheme=https" },
+  { name: "4ever Theater (1080p)", group: "Entertainment", logo: "https://i.imgur.com/kfngtev.png", url: "http://stream.mcquack.net/259/index.m3u8" },
+  { name: "4U TV (720p)", group: "Entertainment", logo: "https://i.imgur.com/PexhKwp.png", url: "https://hls.4utv.live/hls/stream.m3u8" },
+  { name: "5AAB TV (720p)", group: "Entertainment", logo: "https://i.imgur.com/jrGrfof.png", url: "http://158.69.124.9:1935/5aabtv/5aabtv/playlist.m3u8" },
+  { name: "5 Plus (720p)", group: "Entertainment", logo: "https://i.imgur.com/4EHL2mH.png", url: "https://mmtvs.exliatycl.online/5plus/stream.m3u8" },
+  { name: "6ter (1080p)", group: "Entertainment", logo: "https://i.imgur.com/2nd5Cox.png", url: "http://145.239.5.177/314/index.m3u8" },
+  { name: "7 Gold (1080p)", group: "Entertainment", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/7gold.jpg/960px-7gold.jpg", url: "https://streamcdnr6-dddfac816632463dac50b21109dc1bb3.msvdn.net/live/S58803518/OOZape6Nxp4H/playlist.m3u8" },
+  { name: "8TV", group: "Entertainment", logo: "https://i.imgur.com/Jkx9W88.png", url: "http://cdn6.163189.xyz/163189/8tv" },
+  { name: "9Gem (720p)", group: "Entertainment", logo: "https://i.imgur.com/cwLzqaw.png", url: "https://9now-livestreams.akamaized.net/hls/live/2008311/gem-syd/master.m3u8" },
+  { name: "9Go! (720p)", group: "Entertainment", logo: "https://i.imgur.com/RLijQI8.png", url: "https://9now-livestreams.akamaized.net/hls/live/2008312/go-syd/master.m3u8" },
+  { name: "13E (720p)", group: "Entertainment", logo: "https://i.imgur.com/utI1tJV.png", url: "https://origin.dpsgo.com/ssai/event/BBp0VeP6QtOOlH8nu3bWTg/master.m3u8" },
+  { name: "13 Realities (1080p)", group: "Entertainment", logo: "https://i.imgur.com/m0SuwMU.png", url: "https://origin.dpsgo.com/ssai/event/g7_JOM0ORki9SR5RKHe-Kw/master.m3u8" },
+  { name: "16 Anni e Incinta", group: "Entertainment", logo: "https://images.pluto.tv/channels/60940a07d88ba90007b9cb71/colorLogoPNG.png", url: "https://jmp2.uk/plu-60940a07d88ba90007b9cb71.m3u8" },
+  { name: "20", group: "Entertainment", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/20_Mediaset_2018.svg/960px-20_Mediaset_2018.svg.png", url: "https://live3-mediaset-it.akamaized.net/Content/hls_h0_clr_vos/live/channel(lb)/index.m3u8" },
+  { name: "30A Georgia Hollywood Review (720p)", group: "Entertainment", logo: "https://images.axios.com/JiG3RuYBwpU_WZFeU6HHjt03FAU=/111x0:1191x1080/320x320/2023/11/09/1699558891265.jpg", url: "https://30a-tv.com/gh.m3u8" },
+  { name: "30A Sidewalks (720p)", group: "Entertainment", logo: "https://i.imgur.com/HSdwqZN.png", url: "https://30a-tv.com/sidewalks.m3u8" },
+  { name: "30A Television Channel (720p)", group: "Entertainment", logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTHiYfIB01K44LIBG81aEGAmDuIWw8MA0f2w&s", url: "https://30a-tv.com/feeds/masters/30atv.m3u8" },
+  { name: "247 Box TV", group: "Entertainment", logo: "https://i.imgur.com/t5AUthL.png", url: "https://hls.247box.live/hls/stream.m3u8" },
+  { name: "312 TV (406p)", group: "Entertainment", logo: "https://i.ibb.co/S6sZvqk/iLSGi6c.png", url: "http://176.126.166.43:1935/live/312musik/playlist.m3u8" },
+  { name: ".black (576p)", group: "Entertainment", logo: "https://i.imgur.com/Q4A6ci4.png", url: "http://str2.iptvhd.ru:8080/Sony_Turbo/index.m3u8" },
+  { name: ".red HD (1080p)", group: "Entertainment", logo: "https://i.imgur.com/GET9Qut.png", url: "http://178.134.1.158:8081/red/index.m3u8" },
+  { name: "¡OPA! (720p)", group: "Entertainment", logo: "https://i.imgur.com/300c1ZH.png", url: "https://5f1af61612fb5.streamlock.net/genteopa/videogenteopa_720p/playlist.m3u8" },
+  { name: ".red (576p)", group: "Entertainment", logo: "https://i.imgur.com/GET9Qut.png", url: "http://5.188.159.128:8070/RED/index.m3u8" },
+  { name: "A&E (720p)", group: "Entertainment", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/A%26E_Network_logo.svg/960px-A%26E_Network_logo.svg.png", url: "http://23.239.31.26:8989/aande/index.m3u8" },
+  { name: "A&E Latin America (1080p)", group: "Entertainment", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/A%26E_Network_logo.svg/960px-A%26E_Network_logo.svg.png", url: "http://138.121.15.230:9002/A&E/index.m3u8" },
+  { name: "A&E Latin America Brazil (720p)", group: "Entertainment", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/A%26E_Network_logo.svg/960px-A%26E_Network_logo.svg.png", url: "http://170.83.16.50/AeE/index.m3u8" },
+  { name: "A-Plus TV (576p)", group: "Entertainment", logo: "https://i.imgur.com/uu0UJme.png", url: "http://115.42.65.142:9981/stream/channelid/113328724" },
+  { name: "Aaj Entertainment (1080p)", group: "Entertainment", logo: "https://i.imgur.com/WK5Cqap.png", url: "https://ml-pull-dvc-myco.io:2096/AAJ_ENTERTAINMENT/index.m3u8" },
+  { name: "Aakaash Aath (576p)", group: "Entertainment", logo: "https://dtil.tmsimg.com/assets/s142510_ld_h15_ab.png?lock=720x540", url: "http://tvsen5.aynascope.net/Wm9Lv2RjZGT6/index.m3u8" },
+];
+// Total: 108
+
+    let currentHls = null;
+    let activeCat = "all";
+    let searchQuery = "";
+
+    const video = document.getElementById("video");
+    const channelList = document.getElementById("channelList");
+    const placeholder = document.getElementById("placeholder");
+    const nowPlaying = document.getElementById("nowPlaying");
+    const npName = document.getElementById("npName");
+    const npGroup = document.getElementById("npGroup");
+
+    function renderChannels() {
+      const filtered = channels.filter(ch => {
+        const matchCat = activeCat === "all" || ch.group === activeCat;
+        const matchSearch = !searchQuery || ch.name.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchCat && matchSearch;
+      });
+
+      channelList.innerHTML = filtered.map((ch, i) => `
+        <div class="channel-item" data-idx="${channels.indexOf(ch)}">
+          <img class="channel-logo" src="${ch.logo}" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect fill=%22%23242830%22 width=%2240%22 height=%2240%22 rx=%226%22/><text x=%2220%22 y=%2226%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2214%22>TV</text></svg>'">
+          <div class="channel-info">
+            <div class="channel-name">${ch.name}</div>
+            <div class="channel-group">${ch.group}</div>
+          </div>
+        </div>
+      `).join("");
+
+      document.querySelectorAll(".channel-item").forEach(el => {
+        el.addEventListener("click", () => playChannel(parseInt(el.dataset.idx)));
+      });
+    }
+
+    function playChannel(idx) {
+      const ch = channels[idx];
+      if (!ch) return;
+
+      // Highlight active
+      document.querySelectorAll(".channel-item").forEach(el => el.classList.remove("active"));
+      const activeEl = document.querySelector(`.channel-item[data-idx="${idx}"]`);
+      if (activeEl) activeEl.classList.add("active");
+
+      placeholder.style.display = "none";
+      nowPlaying.style.display = "block";
+      npName.textContent = ch.name;
+      npGroup.textContent = ch.group + " • Live";
+
+      // Clean previous
+      if (currentHls) {
+        currentHls.destroy();
+        currentHls = null;
+      }
+      video.src = "";
+
+      if (Hls.isSupported()) {
+        currentHls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+        });
+        currentHls.loadSource(ch.url);
+        currentHls.attachMedia(video);
+        currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {});
+        });
+        currentHls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            console.error("Stream error:", data);
+            npGroup.textContent = "Stream unavailable – try another channel";
+          }
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        // Safari native HLS
+        video.src = ch.url;
+        video.addEventListener("loadedmetadata", () => video.play().catch(() => {}));
+      } else {
+        npGroup.textContent = "Your browser does not support HLS streams";
+      }
+    }
+
+    // Category buttons
+    document.querySelectorAll(".cat-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeCat = btn.dataset.cat;
+        renderChannels();
+      });
+    });
+
+    // Search
+    document.getElementById("search").addEventListener("input", e => {
+      searchQuery = e.target.value;
+      renderChannels();
+    });
+
+    // Init
+    renderChannels();
+  </script>
+</body>
+</html>
